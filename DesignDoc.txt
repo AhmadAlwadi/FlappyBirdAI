@@ -1,0 +1,27 @@
+==================================Description==================================
+--> I haven't actually thought of a description yet....
+==============================End Of Description===============================
+
+===================================Libraries===================================
+--> Pygame  
+--> Random 
+--> Math 
+--> Sys 
+--> Neat (possibly)
+--> Pickle
+===============================End Of Libraries================================
+
+===============================Initial Thoughts================================
+--> The background and flooring can just be constat images as they don't have 
+	to move
+--> The bird and the pipes have to be sprites
+--> Have a list that has all the sprites of the walls 
+--> Have a list that has all the sprites
+--> I need to have a speed for the pipes to move at but is it a constant speed?
+--> Find the speed of the bird 
+--> Should I have the images loaded inside the self function or as global vars?
+--> For the upped and lower pipe just rotate it by 90 degrees
+--> Figure out how to decide what image is showing at the time
+--> The base also has to be a sprite so that if the player hits the ground they
+	lose
+================================End Of Thoughts================================
