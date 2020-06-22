@@ -22,7 +22,7 @@ GREY = (171, 173, 189)
 # Globals
 GRAVITY = 9.8
 HorizantalSpeed = 10
-VerticalSpeed = -10
+VerticalSpeed = -GRAVITY
 
 class Bird(pygame.sprite.Sprite):
 	def __init__(self, x, y):
@@ -102,8 +102,6 @@ class Bird(pygame.sprite.Sprite):
 
 		
 		return frame
-
-
 		
 class Base(pygame.sprite.Sprite):
 	def __init__(self, x, y):
@@ -191,20 +189,40 @@ class Pipe(pygame.sprite.Sprite):
 def GeneratePipe(x, PipeSprite, AllSprites):
 	xCoord = x 
 	height = 100
-	yCoord = random.randint(204, 432)
+	yCoord = random.randint(204, 420)
 	print(xCoord, yCoord, height)
 	pipe = Pipe(xCoord, yCoord, height)
 	PipeSprite.add(pipe)
 	#AllSprites.add(pipe)
 	return pipe, PipeSprite
 
-def CheckCollision(BirdSprite, PipeSprite, BaseSprite):
-	PipeCollision = pygame.sprite.spritecollide(BirdSprite, PipeSprite, False)
-	BaseCollision = pygame.sprite.spritecollide(BirdSprite, PipeSprite, False)
-	if PipeCollision:
-		print('collision pipe')
-	elif BaseCollision:
-		print('collision base')
+def CheckCollision(Bird, CurrentPipe, Base):
+	birdX = Bird.rect.center[0]
+	birdY = Bird.rect.center[1]
+
+	baseY = 512 
+
+	LowerPipeX = CurrentPipe.LowerX1
+	LowerPipeY = CurrentPipe.LowerY1
+
+	UpperPipeX = CurrentPipe.UpperX1
+	UpperPipeY = CurrentPipe.UpperY1 + 320
+
+	# Checking the base collision
+	PipeCollision, BaseCollision = False, False
+	if birdY >= baseY:
+		BaseCollision = True
+
+	# Checking the pipe collision
+	if birdX == LowerPipeX and birdY >= LowerPipeY:
+		PipeCollision = True
+	elif birdX == UpperPipeX and birdY <= UpperPipeY:
+		PipeCollision = True
+
+	if PipeCollision == False and BaseCollision == False:
+		return False
+	else:
+		return True
 
 def CheckIfBirdPassedPipe(BirdX, PipeX):
 	if PipeX < BirdX - 52:
@@ -242,6 +260,12 @@ def main():
 	Pipes.append(CurrentPipe)
 
 	frame = 0 
+	score = 0
+	scoreSTR = 'Score: ' + str(score)
+
+	myfont = pygame.font.SysFont('Consolas', 20)
+	textsurface = myfont.render(scoreSTR, False, (0, 0, 0))
+	SCREEN.blit(textsurface, (650, 0))
 
 	while running:
 		for event in pygame.event.get():
@@ -250,16 +274,28 @@ def main():
 				sys.exit()
 
 		event = pygame.event.get()
+
+		collision = CheckCollision(player, CurrentPipe, BaseSprite)
+		if collision == True:
+			print('Game Over')
+			EndScreen = pygame.font.SysFont('Consolas', 50)
+			EndScreen.set_italic(30)
+			textsurface = EndScreen.render('Game Over', False, (0, 0, 0))
+			SCREEN.blit(textsurface, (275, 250))
+			pygame.display.flip()
+			time.sleep(2)
+			sys.exit()
+
 		if keyboard.is_pressed(' '):
 			player.update(PipeSprite)
 		else:
 			player.fall(PipeSprite)
 
-		CheckCollision(PlayerSprite, PipeSprite, BaseSprite)
-
 		if CheckIfBirdPassedPipe(player.PrevX, CurrentPipe.LowerX1):
 			CurrentPipe, PipeSprite = GeneratePipe(350, PipeSprite, AllSprites)
 			Pipes.append(CurrentPipe)
+			score  += 10
+
 
 		# Animation
 		frame += 1
@@ -273,6 +309,9 @@ def main():
 			i.draw(SCREEN)
 		base1.move()
 		base1.draw(SCREEN)
+		scoreSTR = 'Score: ' + str(score)
+		textsurface = myfont.render(scoreSTR, False, (0, 0, 0))
+		SCREEN.blit(textsurface, (650, 0))
 		pygame.display.flip()
 		CLOCK.tick(10)
 

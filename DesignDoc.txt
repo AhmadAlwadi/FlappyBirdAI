@@ -24,4 +24,6 @@
 --> Figure out how to decide what image is showing at the time
 --> The base also has to be a sprite so that if the player hits the ground they
 	lose
+--> For base collision we only have to check the Y axis as the base covers the 
+	whole ground
 ================================End Of Thoughts================================
