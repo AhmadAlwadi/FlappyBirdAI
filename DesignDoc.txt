@@ -27,3 +27,19 @@
 --> For base collision we only have to check the Y axis as the base covers the 
 	whole ground
 ================================End Of Thoughts================================
+
+===============================Neural Parameters===============================
+--> For the input layer:
+	--> Y axis as the x axis is fixed;
+	--> The distance between the two pipes.
+--> For the output layer:
+	--> A float of weather or not to jump.
+--> For the activation function:
+	--> TanH
+--> For the population size:
+	--> 25 should be enough.
+--> For the fitness function:
+	--> Potentially how long/far the bird has traveled.
+--> For the maximum number of generations:
+	--> 25 should be enough	
+===================================End Of List=================================

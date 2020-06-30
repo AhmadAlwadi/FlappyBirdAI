@@ -1,4 +1,4 @@
-import pygame, sys, time, random, keyboard
+import pygame, sys, time, random, keyboard, neat, math, os
 
 # Pygame stuff
 SCREEN_RES = (800, 624)
@@ -16,13 +16,14 @@ GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 PURPLE = (255, 0, 255)
 YELLOW = (255, 255, 0)
-WALLS_COLOR = (60, 66, 196)
 GREY = (171, 173, 189)
+COLORS = [BLACK, WHITE, BLUE, GREEN, RED, PURPLE, YELLOW, GREEN]
 
 # Globals
 GRAVITY = 9.8
 HorizantalSpeed = 10
 VerticalSpeed = -GRAVITY
+generation = 0
 
 class Bird(pygame.sprite.Sprite):
 	def __init__(self, x, y):
@@ -41,7 +42,7 @@ class Bird(pygame.sprite.Sprite):
 		self.rect = self.image.get_rect()
 		self.rect.center = (x, y)
 
-	def update(self, pipes):
+	def jump(self, pipes):
 		self.CurrentX = self.rect.left
 		self.CurrentY = self.rect.top
 
@@ -190,7 +191,6 @@ def GeneratePipe(x, PipeSprite, AllSprites):
 	xCoord = x 
 	height = 100
 	yCoord = random.randint(204, 420)
-	print(xCoord, yCoord, height)
 	pipe = Pipe(xCoord, yCoord, height)
 	PipeSprite.add(pipe)
 	#AllSprites.add(pipe)
@@ -212,32 +212,66 @@ def CheckCollision(Bird, CurrentPipe, Base):
 	PipeCollision, BaseCollision = False, False
 	if birdY >= baseY:
 		BaseCollision = True
+	# Checking if the bird went off screen i.e. higher than pipes
+	elif birdY <=0:
+		BaseCollision = True
 
 	# Checking the pipe collision
-	if birdX == LowerPipeX and birdY >= LowerPipeY:
-		PipeCollision = True
-	elif birdX == UpperPipeX and birdY <= UpperPipeY:
-		PipeCollision = True
+	if birdY >= LowerPipeY:
+		# Checkign if they touch the pipe from the beginning to the end
+		if birdX >= LowerPipeX and birdX <= LowerPipeX + 52:
+			PipeCollision = True
+	elif birdY <= UpperPipeY:
+		if birdX >= UpperPipeX and birdX <= UpperPipeX + 52:
+			PipeCollision = True
 
-	if PipeCollision == False and BaseCollision == False:
-		return False
-	else:
-		return True
+	return PipeCollision, BaseCollision
 
 def CheckIfBirdPassedPipe(BirdX, PipeX):
 	if PipeX < BirdX - 52:
-		print('passed')
 		return True
 	else:
 		return False
 
+def CalcDistanceTillPipe(BirdX, BirdY, PipeX, PipeY):
+	# Use the distance formula
+	LowerPipeX = PipeX
+	LowerPipeY = PipeY
 
-def main():
+	UpperPipeX = PipeX
+	UpperPipeY = PipeY - 100
+	# For the lower pipe
+	DistLower = math.sqrt((LowerPipeX-BirdX)**2+(LowerPipeY-BirdY)**2)
+
+	# For the upper pipe
+	DistUpper = math.sqrt((UpperPipeX-BirdX)**2+(UpperPipeY-BirdY)**2)
+	drawDistance(SCREEN, BirdY, UpperPipeX, UpperPipeY, LowerPipeX, LowerPipeY)
+	return DistLower, DistUpper
+
+def drawDistance(win, birdY, UpperX, UpperY, LowerX, LowerY):
+	color = random.choice(COLORS)
+	pygame.draw.line(win, color, (250, birdY), (UpperX, UpperY), 3)
+	pygame.draw.line(win, color, (250, birdY), (LowerX, LowerY), 3)
+	pygame.display.flip()
+
+def main(genomesInput, config):
+	global generation
+	generation += 1
 	AllSprites = pygame.sprite.RenderPlain()
 	PlayerSprite = pygame.sprite.RenderPlain()
 
-	player = Bird(250, 312)	
-	PlayerSprite.add(player)
+	ge = []
+	nets = []
+	players = []
+	for id_, gene in genomesInput:
+		gene.fitness = 0 
+		network = neat.nn.FeedForwardNetwork.create(gene, config)
+		nets.append(network)
+		player = Bird(250, 312)
+		players.append(player)
+		ge.append(gene)
+		PlayerSprite.add(player)
+		AllSprites.add(player)
 
 	BaseSprite = pygame.sprite.RenderPlain()
 	base1 = Base(0, 512)
@@ -251,7 +285,6 @@ def main():
 	PipeSprite = pygame.sprite.RenderPlain()
 
 	AllSprites.add(background1)
-	AllSprites.add(player)
 
 	running = True
 	# Initial pipe
@@ -259,7 +292,7 @@ def main():
 	Pipes = []
 	Pipes.append(CurrentPipe)
 
-	frame = 0 
+	frames = [0]*len(players)
 	score = 0
 	scoreSTR = 'Score: ' + str(score)
 
@@ -272,34 +305,52 @@ def main():
 			if event.type == pygame.QUIT:
 				running = False
 				sys.exit()
+				pygame.quit()
+				quit()
+				break
 
-		event = pygame.event.get()
+		for position, player in enumerate(players):
+			ge[position].fitness += 0.2
 
-		collision = CheckCollision(player, CurrentPipe, BaseSprite)
-		if collision == True:
-			print('Game Over')
-			EndScreen = pygame.font.SysFont('Consolas', 50)
-			EndScreen.set_italic(30)
-			textsurface = EndScreen.render('Game Over', False, (0, 0, 0))
-			SCREEN.blit(textsurface, (275, 250))
-			pygame.display.flip()
-			time.sleep(2)
-			sys.exit()
+			LowerDist, UpperDist = CalcDistanceTillPipe(250, player.rect.center[1], CurrentPipe.LowerX1, CurrentPipe.LowerY1)
+			output = nets[position].activate((player.rect.center[1], LowerDist, UpperDist))
 
-		if keyboard.is_pressed(' '):
-			player.update(PipeSprite)
-		else:
-			player.fall(PipeSprite)
+			if output[0] > 0.5:
+				players[position].jump(PipeSprite)
+			else:
+				players[position].fall(PipeSprite)
 
-		if CheckIfBirdPassedPipe(player.PrevX, CurrentPipe.LowerX1):
-			CurrentPipe, PipeSprite = GeneratePipe(350, PipeSprite, AllSprites)
-			Pipes.append(CurrentPipe)
-			score  += 10
+		for position, player in enumerate(players):
+			PipeCollision, BaseCollision = CheckCollision(player, CurrentPipe, BaseSprite)
+			if PipeCollision:
+				ge[position].fitness -= 1
+				PlayerSprite.remove(players[position])
+				players.pop(position)
+				ge.pop(position)
+				nets.pop(position)
+				frames.pop(position)
+			elif BaseCollision:
+				PlayerSprite.remove(players[position])
+				players.pop(position)
+				ge.pop(position)
+				nets.pop(position)
+				frames.pop(position)
+			else:
+				for gene in ge:
+					gene.fitness += 0.2
 
 
+			passed = CheckIfBirdPassedPipe(player.PrevX, CurrentPipe.LowerX1)
+			if passed:
+				CurrentPipe, PipeSprite = GeneratePipe(350, PipeSprite, AllSprites)
+				Pipes.append(CurrentPipe)
+				score  += 10
+		if len(players) == 0:
+			break
 		# Animation
-		frame += 1
-		frame = player.animate(frame)
+		for i in range(len(frames)):
+			frames[i] += 1
+			frames[i] = players[i].animate(frames[i])
 
 		# Drawing & Updating
 		SCREEN.fill(BLACK)
@@ -312,9 +363,40 @@ def main():
 		scoreSTR = 'Score: ' + str(score)
 		textsurface = myfont.render(scoreSTR, False, (0, 0, 0))
 		SCREEN.blit(textsurface, (650, 0))
+		genSTR = 'Generation: ' + str(generation)
+		textsurface = myfont.render(genSTR, False, (0, 0, 0))
+		SCREEN.blit(textsurface, (0, 0))
+		PlayerSprite.draw(SCREEN)
 		pygame.display.flip()
 		CLOCK.tick(10)
 
+def run(config_file):
+    """
+    runs the NEAT algorithm to train a neural network to play flappy bird.
+    :param config_file: location of config file
+    :return: None
+    """
+    config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                         neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                         config_file)
+
+    # Create the population, which is the top-level object for a NEAT run.
+    p = neat.population.Population(config)
+
+    # Add a stdout reporter to show progress in the terminal.
+    p.add_reporter(neat.StdOutReporter(True))
+    stats = neat.StatisticsReporter()
+    p.add_reporter(stats)
+    #p.add_reporter(neat.Checkpointer(5))
+
+    # Run for up to 25 generations.
+    winner = p.run(main, 300)
+
+    # show final stats
+    print('\nBest genome:\n{!s}'.format(winner))
+
 
 if __name__ == '__main__':
-	main()
+	CurrentDir = os.path.dirname(__file__)
+	ConfigPath = os.path.join(CurrentDir, 'config-feedforward.txt')
+	run(ConfigPath)
